@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="googlebot" content="noindex,nofollow">
+<title>XRP Portfolio — Live</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-2: #1c2230;
+    --panel-3: #232a39;
+    --border: #262d3b;
+    --text: #e6e8ec;
+    --muted: #8a93a3;
+    --red: #e54b4b;
+    --red-soft: #4a1d1d;
+    --green: #2eb872;
+    --green-soft: #1a3d2a;
+    --yellow: #d9a441;
+    --blue: #6ea8ff;
+    --accent: #6ea8ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 24px 20px 48px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  header { margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .status-bar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 20px;
+    font-size: 13px;
+  }
+  .status-bar > * { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.live { background: var(--green); box-shadow: 0 0 8px rgba(46,184,114,0.6); }
+  .dot.closed { background: var(--muted); }
+  .dot.err { background: var(--red); }
+  .status-bar .spacer { flex: 1; }
+  button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; font-family: inherit;
+  }
+  button:hover { background: var(--panel-3); }
+  button.primary { background: var(--accent); color: #0f1115; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); }
+
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .stat .value { font-size: 22px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat .value.neg { color: var(--red); }
+  .stat .value.pos { color: var(--green); }
+  .stat .value.muted { color: var(--muted); font-weight: 500; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  th { background: var(--panel-2); color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; user-select: none; cursor: pointer; }
+  th.sorted-asc::after { content: " ▲"; color: var(--accent); }
+  th.sorted-desc::after { content: " ▼"; color: var(--accent); }
+  tr:last-child td { border-bottom: none; }
+  tr.total-row td { background: var(--panel-2); font-weight: 600; border-top: 2px solid var(--accent); }
+  td.num, th.num { text-align: right; }
+  td.ticker { font-weight: 600; letter-spacing: 0.02em; }
+  .neg { color: var(--red); }
+  .pos { color: var(--green); }
+  td.live-cell.flash-up { animation: flashUp 1.2s ease-out; }
+  td.live-cell.flash-down { animation: flashDown 1.2s ease-out; }
+  @keyframes flashUp { 0% { background: rgba(46,184,114,0.4); } 100% { background: transparent; } }
+  @keyframes flashDown { 0% { background: rgba(229,75,75,0.4); } 100% { background: transparent; } }
+  .err-tag { color: var(--red); font-size: 11px; margin-left: 6px; }
+
+  /* Settings overlay */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .overlay.show { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 24px; max-width: 480px; width: 90%; }
+  .modal h2 { margin: 0 0 8px; font-size: 16px; }
+  .modal p { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .modal input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 5px; font-family: inherit; font-size: 14px; }
+  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  a { color: var(--accent); }
+
+  footer { margin-top: 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); padding-top: 14px; line-height: 1.6; }
+  footer ul { margin: 8px 0 0; padding-left: 20px; }
+  footer li { margin-bottom: 4px; }
+
+  /* Charts */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .chart-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .chart-card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-weight: 500;
+  }
+  .chart-card svg { width: 100%; height: auto; max-height: 240px; }
+  .donut-center { fill: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .donut-center-label { fill: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px 12px;
+    margin-top: 12px;
+    font-size: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .legend-ticker { color: var(--text); font-weight: 500; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+  .bar-row .ticker-label { width: 56px; font-weight: 600; text-align: right; flex-shrink: 0; }
+  .bar-row .bar-track {
+    flex: 1; height: 18px; position: relative; background: rgba(255,255,255,0.025);
+    border-radius: 2px;
+  }
+  .bar-row .bar-axis { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); }
+  .bar-row .bar-fill { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; }
+  .bar-row .bar-fill.pos { background: var(--green); }
+  .bar-row .bar-fill.neg { background: var(--red); }
+  .bar-row .bar-label {
+    width: 110px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .bar-row .bar-pct { width: 64px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; color: var(--muted); }
+  .sector-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .sector-card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-weight: 500;
+  }
+  .sector-bar {
+    display: flex;
+    width: 100%;
+    height: 30px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .sector-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f1115;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .sector-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 6px 14px;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+
+  @media (max-width: 720px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .charts-grid { grid-template-columns: 1fr; }
+    .bar-row .ticker-label { width: 44px; }
+    .bar-row .bar-label { width: 90px; font-size: 11px; }
+    .bar-row .bar-pct { display: none; }
+    table { font-size: 12px; }
+    th, td { padding: 8px 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <h1>XRP — Portfolio (Live)</h1>
+    <div class="sub">Auto-updates from Finnhub. Keep this tab open for live ticks.</div>
+  </div>
+</header>
+
+<div class="status-bar">
+  <span><span class="dot" id="market-dot"></span><span id="market-status">…</span></span>
+  <span style="color: var(--muted);">|</span>
+  <span id="last-updated" style="color: var(--muted);">Last update: —</span>
+  <span style="color: var(--muted);">|</span>
+  <span id="next-refresh" style="color: var(--muted);">Next refresh: —</span>
+  <span class="spacer"></span>
+  <button id="refresh-btn">↻ Refresh now</button>
+  <button id="settings-btn">⚙ Settings</button>
+</div>
+
+<div class="summary">
+  <div class="stat">
+    <div class="label">Portfolio value</div>
+    <div class="value" id="total-value">—</div>
+  </div>
+  <div class="stat">
+    <div class="label">Total cost</div>
+    <div class="value muted" id="total-cost">—</div>
+  </div>
+  <div class="stat">
+    <div class="label">Unrealized P/L</div>
+    <div class="value" id="total-pl">—</div>
+  </div>
+  <div class="stat">
+    <div class="label">P/L %</div>
+    <div class="value" id="total-pl-pct">—</div>
+  </div>
+</div>
+
+<div class="charts-grid">
+  <div class="chart-card">
+    <h2>Allocation by ticker</h2>
+    <svg id="donut-chart" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="legend" id="donut-legend"></div>
+  </div>
+  <div class="chart-card">
+    <h2>Unrealized P/L by position</h2>
+    <div id="pl-bars" style="margin-top: 4px;"></div>
+  </div>
+</div>
+
+<div class="sector-card">
+  <h2>By sector / theme</h2>
+  <div class="sector-bar" id="sector-bar"></div>
+  <div class="sector-legend" id="sector-legend"></div>
+</div>
+
+<table id="holdings">
+  <thead>
+    <tr>
+      <th data-sort="ticker">Ticker</th>
+      <th data-sort="shares" class="num">Shares</th>
+      <th data-sort="tradePrice" class="num">Trade Price</th>
+      <th data-sort="livePrice" class="num">Live Price</th>
+      <th data-sort="totalValue" class="num">Total Value</th>
+      <th data-sort="totalCost" class="num">Total Cost</th>
+      <th data-sort="pl" class="num">Unrealized P/L</th>
+      <th data-sort="plPct" class="num">P/L %</th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="settings-overlay">
+  <div class="modal">
+    <h2>Finnhub API key</h2>
+    <p>Required to fetch live quotes. Get a free key at <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a> (30 seconds, no credit card).</p>
+    <input type="text" id="api-key-input" placeholder="d12345abcdefghij..." spellcheck="false" autocomplete="off">
+    <p style="font-size: 12px; margin-top: 6px;">Stored in your browser's localStorage. Cleared by clearing browser data.</p>
+    <div class="actions">
+      <button id="cancel-settings">Cancel</button>
+      <button class="primary" id="save-key">Save & refresh</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// PORTFOLIO DATA — edit this array if positions change
+// =====================================================================
+// For crypto: `apiSymbol` overrides `ticker` when querying Finnhub.
+// The UI shows `ticker` (short/pretty), the API call uses `apiSymbol` (full path).
+const POSITIONS = [
+  { ticker: 'XRP', shares: 200000, tradePrice: 0.49, apiSymbol: 'COINBASE:XRP-USD' },
+];
+
+// =====================================================================
+// SECTOR / THEME MAPPING
+// =====================================================================
+const SECTORS = {
+  XRP: 'Crypto — Payments',
+};
+const SECTOR_COLORS = {
+  'Crypto — Payments': '#f7931a',
+};
+
+// =====================================================================
+// STATE
+// =====================================================================
+let lastQuotes = {};           // ticker → last fetched price (for flash)
+let lastResults = null;        // cached results from last successful fetch
+let sortKey = 'totalValue';
+let sortDir = 'desc';
+let refreshTimer = null;
+let countdownTimer = null;
+let nextRefreshAt = null;
+let consecutiveRateLimits = 0; // counts consecutive rate-limit hits for backoff
+
+// =====================================================================
+// MARKET HOURS (US/Eastern, naive — no holiday detection)
+// =====================================================================
+function getMarketStatus() {
+  const now = new Date();
+  // Convert to ET
+  const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+  const etDate = new Date(etStr);
+  const day = etDate.getDay();    // 0 = Sun, 6 = Sat
+  const h = etDate.getHours();
+  const m = etDate.getMinutes();
+  const minutesSinceMidnight = h * 60 + m;
+  const open = 9 * 60 + 30;       // 9:30
+  const close = 16 * 60;          // 16:00
+  if (day === 0 || day === 6) return { open: false, label: 'Market closed (weekend)' };
+  if (minutesSinceMidnight < open) return { open: false, label: `Market closed — opens 9:30 ET` };
+  if (minutesSinceMidnight >= close) return { open: false, label: 'Market closed — opens 9:30 ET tomorrow' };
+  return { open: true, label: 'Market open' };
+}
+
+// =====================================================================
+// FINNHUB FETCH
+// =====================================================================
+// Embedded fallback key — recipient doesn't need their own.
+// localStorage override (set via Settings ⚙) still wins if present.
+const EMBEDDED_API_KEY = 'd7vqcu1r01qj3ct818ogd7vqcu1r01qj3ct818p0';
+function getApiKey() {
+  return localStorage.getItem('finnhub_key') || EMBEDDED_API_KEY;
+}
+function setApiKey(k) {
+  localStorage.setItem('finnhub_key', k);
+}
+
+async function fetchQuote(ticker, key) {
+  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${encodeURIComponent(key)}`;
+  const r = await fetch(url);
+  if (!r.ok) {
+    if (r.status === 401 || r.status === 403) throw new Error('AUTH');
+    if (r.status === 429) throw new Error('RATE_LIMIT');
+    throw new Error(`HTTP ${r.status}`);
+  }
+  const d = await r.json();
+  // Finnhub returns: c (current), d (change), dp (change %), h, l, o, pc (prev close), t (timestamp)
+  if (typeof d.c !== 'number' || d.c === 0) throw new Error('NO_DATA');
+  return { price: d.c, prevClose: d.pc, dayChange: d.d, dayChangePct: d.dp, t: d.t };
+}
+
+async function refresh() {
+  const key = getApiKey();
+  if (!key) {
+    showSettings();
+    return;
+  }
+
+  const refreshBtn = document.getElementById('refresh-btn');
+  refreshBtn.disabled = true;
+  refreshBtn.textContent = '↻ Refreshing…';
+
+  const results = await Promise.all(POSITIONS.map(async p => {
+    try {
+      const q = await fetchQuote(p.apiSymbol || p.ticker, key);
+      return { ...p, livePrice: q.price, dayChangePct: q.dayChangePct, error: null };
+    } catch (e) {
+      return { ...p, livePrice: null, dayChangePct: null, error: e.message };
+    }
+  }));
+
+  // Auth error → show settings
+  if (results.every(r => r.error === 'AUTH')) {
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = '↻ Refresh now';
+    alert('Invalid Finnhub API key. Please re-enter.');
+    showSettings();
+    return;
+  }
+
+  // Track rate-limit hits for adaptive backoff
+  const rateLimitedCount = results.filter(r => r.error === 'RATE_LIMIT').length;
+  if (rateLimitedCount > 0) {
+    consecutiveRateLimits++;
+  } else {
+    consecutiveRateLimits = 0;
+  }
+
+  lastResults = results;
+  render(results);
+  document.getElementById('last-updated').textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+
+  refreshBtn.disabled = false;
+  refreshBtn.textContent = '↻ Refresh now';
+
+  scheduleNextRefresh();
+}
+
+function scheduleNextRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  const status = getMarketStatus();
+  let intervalMs = status.open ? 30000 : 300000;
+  // Exponential backoff if hitting rate limits — waits 60s, 120s, 240s, capped at 300s
+  if (consecutiveRateLimits > 0) {
+    intervalMs = Math.min(60000 * Math.pow(2, consecutiveRateLimits - 1), 300000);
+  }
+  nextRefreshAt = Date.now() + intervalMs;
+  refreshTimer = setTimeout(refresh, intervalMs);
+}
+
+function updateCountdown() {
+  if (!nextRefreshAt) return;
+  const remainMs = nextRefreshAt - Date.now();
+  if (remainMs <= 0) {
+    document.getElementById('next-refresh').textContent = 'Next refresh: now';
+    return;
+  }
+  const s = Math.floor(remainMs / 1000);
+  if (s >= 60) {
+    document.getElementById('next-refresh').textContent = `Next refresh: ${Math.floor(s/60)}m ${s%60}s`;
+  } else {
+    document.getElementById('next-refresh').textContent = `Next refresh: ${s}s`;
+  }
+}
+
+// =====================================================================
+// RENDER
+// =====================================================================
+function render(rows) {
+  // Compute derived fields
+  const enriched = rows.map(r => {
+    const livePx = r.livePrice ?? r.tradePrice;
+    const totalValue = livePx * r.shares;
+    const totalCost = r.tradePrice * r.shares;
+    const pl = totalValue - totalCost;
+    const plPct = (pl / totalCost) * 100;
+    return { ...r, totalValue, totalCost, pl, plPct };
+  });
+
+  // Sort
+  enriched.sort((a, b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    av = av ?? -Infinity; bv = bv ?? -Infinity;
+    return sortDir === 'asc' ? av - bv : bv - av;
+  });
+
+  // Render table
+  const tbody = document.getElementById('rows');
+  tbody.innerHTML = '';
+  enriched.forEach(r => {
+    const prevPx = lastQuotes[r.ticker];
+    let flashClass = '';
+    if (r.livePrice != null && prevPx != null && r.livePrice !== prevPx) {
+      flashClass = r.livePrice > prevPx ? 'flash-up' : 'flash-down';
+    }
+    if (r.livePrice != null) lastQuotes[r.ticker] = r.livePrice;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="ticker">${r.ticker}</td>
+      <td class="num">${r.shares}</td>
+      <td class="num">${fmtMoney(r.tradePrice)}</td>
+      <td class="num live-cell ${flashClass}">${r.livePrice != null ? fmtMoney(r.livePrice) : '<span class="err-tag">' + (r.error || '—') + '</span>'}</td>
+      <td class="num">${fmtMoney(r.totalValue)}</td>
+      <td class="num" style="color: var(--muted);">${fmtMoney(r.totalCost)}</td>
+      <td class="num ${r.pl >= 0 ? 'pos' : 'neg'}">${r.pl >= 0 ? '+' : '−'}${fmtMoney(Math.abs(r.pl))}</td>
+      <td class="num ${r.plPct >= 0 ? 'pos' : 'neg'}">${r.plPct >= 0 ? '+' : ''}${r.plPct.toFixed(2)}%</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Total row
+  const totals = enriched.reduce((acc, r) => {
+    acc.value += r.totalValue;
+    acc.cost += r.totalCost;
+    return acc;
+  }, { value: 0, cost: 0 });
+  const totalPl = totals.value - totals.cost;
+  const totalPlPct = (totalPl / totals.cost) * 100;
+  const totalShares = enriched.reduce((s, r) => s + r.shares, 0);
+
+  const totalTr = document.createElement('tr');
+  totalTr.className = 'total-row';
+  totalTr.innerHTML = `
+    <td>TOTAL</td>
+    <td class="num">${totalShares}</td>
+    <td></td>
+    <td></td>
+    <td class="num">${fmtMoney(totals.value)}</td>
+    <td class="num">${fmtMoney(totals.cost)}</td>
+    <td class="num ${totalPl >= 0 ? 'pos' : 'neg'}">${totalPl >= 0 ? '+' : '−'}${fmtMoney(Math.abs(totalPl))}</td>
+    <td class="num ${totalPlPct >= 0 ? 'pos' : 'neg'}">${totalPlPct >= 0 ? '+' : ''}${totalPlPct.toFixed(2)}%</td>
+  `;
+  tbody.appendChild(totalTr);
+
+  // Update summary stats
+  document.getElementById('total-value').textContent = fmtMoney(totals.value);
+  document.getElementById('total-cost').textContent = fmtMoney(totals.cost);
+  const plEl = document.getElementById('total-pl');
+  plEl.textContent = (totalPl >= 0 ? '+' : '−') + fmtMoney(Math.abs(totalPl));
+  plEl.classList.remove('pos','neg'); plEl.classList.add(totalPl >= 0 ? 'pos' : 'neg');
+  const plPctEl = document.getElementById('total-pl-pct');
+  plPctEl.textContent = (totalPlPct >= 0 ? '+' : '') + totalPlPct.toFixed(2) + '%';
+  plPctEl.classList.remove('pos','neg'); plPctEl.classList.add(totalPlPct >= 0 ? 'pos' : 'neg');
+
+  // Update sort indicator
+  document.querySelectorAll('th').forEach(th => {
+    th.classList.remove('sorted-asc','sorted-desc');
+    if (th.dataset.sort === sortKey) th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+  });
+
+  // Update charts
+  renderCharts(enriched);
+}
+
+function fmtMoney(n) {
+  return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// =====================================================================
+// CHART RENDERING
+// =====================================================================
+function tickerColor(i, total) {
+  // Evenly-spaced hues with a small phase offset so AAPL doesn't end up red
+  return `hsl(${(i * 360 / total + 200) % 360}, 60%, 58%)`;
+}
+
+function arcPath(cx, cy, r, startAngle, endAngle, innerR) {
+  const sx = cx + r * Math.cos(startAngle);
+  const sy = cy + r * Math.sin(startAngle);
+  const ex = cx + r * Math.cos(endAngle);
+  const ey = cy + r * Math.sin(endAngle);
+  const isx = cx + innerR * Math.cos(endAngle);
+  const isy = cy + innerR * Math.sin(endAngle);
+  const iex = cx + innerR * Math.cos(startAngle);
+  const iey = cy + innerR * Math.sin(startAngle);
+  const large = (endAngle - startAngle) > Math.PI ? 1 : 0;
+  return `M ${sx} ${sy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey} L ${isx} ${isy} A ${innerR} ${innerR} 0 ${large} 0 ${iex} ${iey} Z`;
+}
+
+function renderDonut(rows) {
+  const total = rows.reduce((a, r) => a + r.totalValue, 0);
+  if (total <= 0) return;
+  const sorted = [...rows].sort((a, b) => b.totalValue - a.totalValue);
+  const cx = 100, cy = 100, r = 88, ir = 56;
+  let angle = -Math.PI / 2;
+  let html = '';
+  const legendItems = [];
+  sorted.forEach((row, i) => {
+    const frac = row.totalValue / total;
+    const next = angle + frac * 2 * Math.PI;
+    const color = tickerColor(i, sorted.length);
+    // Avoid degenerate slices
+    if (frac > 0.0005) {
+      html += `<path d="${arcPath(cx, cy, r, angle, next, ir)}" fill="${color}" stroke="#0f1115" stroke-width="1"><title>${row.ticker}: ${fmtMoney(row.totalValue)} (${(frac*100).toFixed(2)}%)</title></path>`;
+    }
+    legendItems.push({ ticker: row.ticker, color, pct: frac * 100, value: row.totalValue });
+    angle = next;
+  });
+  html += `<text x="100" y="93" text-anchor="middle" class="donut-center-label">Portfolio</text>`;
+  html += `<text x="100" y="111" text-anchor="middle" class="donut-center" font-size="15">${fmtMoney(total)}</text>`;
+  document.getElementById('donut-chart').innerHTML = html;
+
+  document.getElementById('donut-legend').innerHTML = legendItems.map(it =>
+    `<div class="legend-item">
+      <span class="legend-swatch" style="background:${it.color}"></span>
+      <span class="legend-ticker">${it.ticker}</span>
+      <span style="margin-left:auto;">${it.pct.toFixed(1)}%</span>
+    </div>`
+  ).join('');
+}
+
+function renderPLBars(rows) {
+  const sorted = [...rows].sort((a, b) => b.pl - a.pl);
+  const maxAbs = Math.max(...sorted.map(r => Math.abs(r.pl)), 1);
+  document.getElementById('pl-bars').innerHTML = sorted.map(r => {
+    const widthPct = (Math.abs(r.pl) / maxAbs) * 50;
+    const isPos = r.pl >= 0;
+    const left = isPos ? '50%' : `${50 - widthPct}%`;
+    return `
+      <div class="bar-row">
+        <div class="ticker-label">${r.ticker}</div>
+        <div class="bar-track">
+          <div class="bar-axis" style="left: 50%;"></div>
+          <div class="bar-fill ${isPos ? 'pos' : 'neg'}" style="left: ${left}; width: ${widthPct}%;"></div>
+        </div>
+        <div class="bar-label ${isPos ? 'pos' : 'neg'}">${isPos ? '+' : '−'}${fmtMoney(Math.abs(r.pl))}</div>
+        <div class="bar-pct ${isPos ? 'pos' : 'neg'}">${isPos ? '+' : ''}${r.plPct.toFixed(1)}%</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSectorBar(rows) {
+  const total = rows.reduce((a, r) => a + r.totalValue, 0);
+  if (total <= 0) return;
+  const bySector = {};
+  rows.forEach(r => {
+    const s = SECTORS[r.ticker] || 'Other';
+    if (!bySector[s]) bySector[s] = { value: 0, tickers: [] };
+    bySector[s].value += r.totalValue;
+    bySector[s].tickers.push(r.ticker);
+  });
+  const sorted = Object.entries(bySector).sort((a, b) => b[1].value - a[1].value);
+  document.getElementById('sector-bar').innerHTML = sorted.map(([sector, data]) => {
+    const pct = (data.value / total) * 100;
+    const color = SECTOR_COLORS[sector] || '#888';
+    const label = pct > 5 ? `${pct.toFixed(0)}%` : '';
+    return `<div class="sector-segment" style="width: ${pct}%; background: ${color};" title="${sector}: ${fmtMoney(data.value)} (${pct.toFixed(1)}%) — ${data.tickers.join(', ')}">${label}</div>`;
+  }).join('');
+  document.getElementById('sector-legend').innerHTML = sorted.map(([sector, data]) => {
+    const pct = (data.value / total) * 100;
+    const color = SECTOR_COLORS[sector] || '#888';
+    return `<div class="legend-item">
+      <span class="legend-swatch" style="background:${color}"></span>
+      <span style="color:var(--text);"><strong>${sector}</strong> <span style="color:var(--muted); font-size: 11px;">(${data.tickers.join(', ')})</span></span>
+      <span style="margin-left:auto; color: var(--text);">${fmtMoney(data.value)} · ${pct.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function renderCharts(rows) {
+  renderDonut(rows);
+  renderPLBars(rows);
+  renderSectorBar(rows);
+}
+
+// =====================================================================
+// SETTINGS MODAL
+// =====================================================================
+function showSettings() {
+  document.getElementById('api-key-input').value = getApiKey();
+  document.getElementById('settings-overlay').classList.add('show');
+  document.getElementById('api-key-input').focus();
+}
+function hideSettings() {
+  document.getElementById('settings-overlay').classList.remove('show');
+}
+
+// =====================================================================
+// INIT
+// =====================================================================
+function updateMarketBadge() {
+  const status = getMarketStatus();
+  const dot = document.getElementById('market-dot');
+  dot.className = 'dot ' + (status.open ? 'live' : 'closed');
+  document.getElementById('market-status').textContent = status.label;
+}
+
+document.querySelectorAll('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.sort;
+    if (sortKey === k) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    else { sortKey = k; sortDir = 'desc'; }
+    // Re-render from cached data — do NOT re-fetch (that wastes API quota)
+    if (lastResults) render(lastResults);
+  });
+});
+
+document.getElementById('refresh-btn').addEventListener('click', refresh);
+document.getElementById('settings-btn').addEventListener('click', showSettings);
+document.getElementById('cancel-settings').addEventListener('click', hideSettings);
+document.getElementById('save-key').addEventListener('click', () => {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (k) {
+    setApiKey(k);
+    hideSettings();
+    refresh();
+  }
+});
+document.getElementById('api-key-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('save-key').click();
+});
+
+// Render an initial table from cost-basis only so the page isn't blank
+render(POSITIONS.map(p => ({ ...p, livePrice: null, error: 'loading' })));
+
+updateMarketBadge();
+setInterval(updateMarketBadge, 60000);
+setInterval(updateCountdown, 1000);
+
+// Kick off
+refresh();
+</script>
+
+</body>
+</html>
