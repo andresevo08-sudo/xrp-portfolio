@@ -294,7 +294,7 @@
 // For crypto: `apiSymbol` overrides `ticker` when querying Finnhub.
 // The UI shows `ticker` (short/pretty), the API call uses `apiSymbol` (full path).
 const POSITIONS = [
-  { ticker: 'XRP', shares: 200000, tradePrice: 0.49, apiSymbol: 'COINBASE:XRP-USD' },
+  { ticker: 'XRP', shares: 225000, tradePrice: 0.436544, apiSymbol: 'COINBASE:XRP-USD' },
 ];
 
 // =====================================================================
@@ -532,7 +532,10 @@ function render(rows) {
 }
 
 function fmtMoney(n) {
-  return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const abs = Math.abs(n);
+  // Sub-$1 values (typical for crypto like XRP, SHIB) get more decimals so display matches the math.
+  const decimals = (abs > 0 && abs < 1) ? 4 : 2;
+  return '$' + n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 // =====================================================================
