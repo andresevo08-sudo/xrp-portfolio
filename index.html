@@ -348,23 +348,10 @@ let nextRefreshAt = null;
 let consecutiveRateLimits = 0; // counts consecutive rate-limit hits for backoff
 
 // =====================================================================
-// MARKET HOURS (US/Eastern, naive — no holiday detection)
+// MARKET HOURS — crypto trades 24/7, so always "open"
 // =====================================================================
 function getMarketStatus() {
-  const now = new Date();
-  // Convert to ET
-  const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
-  const etDate = new Date(etStr);
-  const day = etDate.getDay();    // 0 = Sun, 6 = Sat
-  const h = etDate.getHours();
-  const m = etDate.getMinutes();
-  const minutesSinceMidnight = h * 60 + m;
-  const open = 9 * 60 + 30;       // 9:30
-  const close = 16 * 60;          // 16:00
-  if (day === 0 || day === 6) return { open: false, label: 'Market closed (weekend)' };
-  if (minutesSinceMidnight < open) return { open: false, label: `Market closed — opens 9:30 ET` };
-  if (minutesSinceMidnight >= close) return { open: false, label: 'Market closed — opens 9:30 ET tomorrow' };
-  return { open: true, label: 'Market open' };
+  return { open: true, label: 'Crypto market — 24/7' };
 }
 
 // =====================================================================
@@ -443,11 +430,12 @@ async function refresh() {
 
 function scheduleNextRefresh() {
   if (refreshTimer) clearTimeout(refreshTimer);
-  const status = getMarketStatus();
-  let intervalMs = status.open ? 30000 : 300000;
-  // Exponential backoff if hitting rate limits — waits 60s, 120s, 240s, capped at 300s
+  // Crypto ticks 24/7 and this portfolio has only 2 API calls per refresh,
+  // so we can poll aggressively (Finnhub free tier is 60 calls/min).
+  let intervalMs = 10000; // 10 seconds
+  // Exponential backoff if hitting rate limits — waits 30s, 60s, 120s, capped at 300s
   if (consecutiveRateLimits > 0) {
-    intervalMs = Math.min(60000 * Math.pow(2, consecutiveRateLimits - 1), 300000);
+    intervalMs = Math.min(30000 * Math.pow(2, consecutiveRateLimits - 1), 300000);
   }
   nextRefreshAt = Date.now() + intervalMs;
   refreshTimer = setTimeout(refresh, intervalMs);
