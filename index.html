@@ -430,9 +430,8 @@ async function refresh() {
 
 function scheduleNextRefresh() {
   if (refreshTimer) clearTimeout(refreshTimer);
-  // Crypto ticks 24/7 and this portfolio has only 2 API calls per refresh,
-  // so we can poll aggressively (Finnhub free tier is 60 calls/min).
-  let intervalMs = 10000; // 10 seconds
+  // Crypto ticks 24/7 — poll every 30 seconds.
+  let intervalMs = 30000; // 30 seconds
   // Exponential backoff if hitting rate limits — waits 30s, 60s, 120s, capped at 300s
   if (consecutiveRateLimits > 0) {
     intervalMs = Math.min(30000 * Math.pow(2, consecutiveRateLimits - 1), 300000);
