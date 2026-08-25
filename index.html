@@ -67,6 +67,12 @@
     user-select: all;
     color: var(--muted);
   }
+  .pending-notice.received {
+    background: rgba(110, 168, 255, 0.10);
+    border-color: rgba(110, 168, 255, 0.35);
+    border-left-color: var(--blue);
+  }
+  .pending-notice.received strong { color: var(--blue); }
   .status-bar > * { display: inline-flex; align-items: center; gap: 6px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   .dot.live { background: var(--green); box-shadow: 0 0 8px rgba(46,184,114,0.6); }
@@ -248,6 +254,13 @@
   <span class="meta">Cost basis $196,000</span>
 </div>
 
+<div class="pending-notice received">
+  <span class="icon">📥</span>
+  <span><strong>400,000 XRP received from wallet</strong></span>
+  <span class="addr" title="source wallet address (redacted)">rDXpJR••••••••••••••••hQtM</span>
+  <span class="meta">at $0.29 · new cost basis $116,000</span>
+</div>
+
 <div class="summary">
   <div class="stat">
     <div class="label">Portfolio value</div>
@@ -350,6 +363,7 @@
 // For crypto: `apiSymbol` overrides `ticker` when querying Finnhub.
 // The UI shows `ticker` (short/pretty), the API call uses `apiSymbol` (full path).
 const POSITIONS = [
+  { ticker: 'XRP (main)',  shares: 400000, tradePrice: 0.29,   apiSymbol: 'COINBASE:XRP-USD' },
   { ticker: 'XRP (early)', shares: 50000,  tradePrice: 0.0089, apiSymbol: 'COINBASE:XRP-USD' },
 ];
 
@@ -357,6 +371,7 @@ const POSITIONS = [
 // SECTOR / THEME MAPPING
 // =====================================================================
 const SECTORS = {
+  'XRP (main)':  'Crypto — Payments',
   'XRP (early)': 'Crypto — Payments',
 };
 const SECTOR_COLORS = {
